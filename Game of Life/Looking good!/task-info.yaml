@@ -1,0 +1,495 @@
+type: edu
+custom_name: stage4
+files:
+- name: test/GameOfLifeTest.java
+  visible: false
+  text: |2
+
+    import common.GameOfLifeStage4Test;
+
+    public class GameOfLifeTest extends GameOfLifeStage4Test {
+
+    }
+  learner_created: false
+- name: test/common/CheckResultUtil.kt
+  visible: false
+  text: |
+    package common
+
+
+    import org.hyperskill.hstest.v6.testcase.CheckResult
+
+    operator fun CheckResult.component1(): Boolean = isCorrect
+    operator fun CheckResult.component2(): String? = feedback
+
+    fun fail(message: String) = CheckResult(false, message)
+  learner_created: false
+- name: test/common/ClueWithChecker.kt
+  visible: false
+  text: |
+    package common
+
+
+    import org.hyperskill.hstest.v6.testcase.CheckResult
+    import org.hyperskill.hstest.v6.testcase.TestCase
+
+    sealed class ClueWithChecker(val input: String) {
+        fun toTestCase(): TestCase<ClueWithChecker> {
+            return TestCase<ClueWithChecker>().setInput(input).setAttach(this)
+        }
+    }
+
+    class ClueWithPredefinedFeedbackChecker(
+            val predefinedFeedback: String,
+            input: String,
+            val checker: (String) -> Boolean
+    ) : ClueWithChecker(input)
+
+    class ClueWithDynamicFeedbackChecker(
+            input: String,
+            val checker: (String) -> CheckResult
+    ) : ClueWithChecker(input)
+
+    fun createPredefinedFeedbackTest(
+            feedback: String,
+            input: String = "",
+            checker: (String) -> Boolean
+    ): TestCase<ClueWithChecker> {
+        return ClueWithPredefinedFeedbackChecker(
+                predefinedFeedback = feedback,
+                input = input,
+                checker = checker
+        ).toTestCase()
+    }
+
+    fun createDynamicFeedbackTest(input: String = "", checker: (String) -> CheckResult): TestCase<ClueWithChecker> {
+        return ClueWithDynamicFeedbackChecker(
+                input = input,
+                checker = checker
+        ).toTestCase()
+    }
+
+    fun checkClueWithCheckerTest(reply: String, clue: ClueWithChecker): CheckResult {
+        return try {
+            when (clue) {
+                is ClueWithDynamicFeedbackChecker -> clue.checker(reply)
+                is ClueWithPredefinedFeedbackChecker -> CheckResult(clue.checker(reply), clue.predefinedFeedback)
+            }
+        } catch (e: AssertionError) {
+            if (clue is ClueWithPredefinedFeedbackChecker) {
+                fail(clue.predefinedFeedback)
+            } else {
+                CheckResult.FALSE
+            }
+        }
+    }
+  learner_created: false
+- name: test/common/GameOfLifeCommonTest.kt
+  visible: false
+  text: |
+    package common
+
+
+    import org.assertj.swing.fixture.JLabelFixture
+    import org.hyperskill.hstest.v6.testcase.CheckResult
+
+    fun checkLabelForInteger(labelRequirements: ComponentRequirements<JLabelFixture>): CheckResult {
+        val label = labelRequirements.requireExistingComponent()
+
+        val labelDigits = label.text().trim { !it.isDigit() }
+
+        if (labelDigits.toIntOrNull() == null) {
+            return fail("The '${labelRequirements.name}' label doesn't contain an integer.")
+        }
+
+        return CheckResult.TRUE
+    }
+  learner_created: false
+- name: test/common/GameOfLifeStage4Test.kt
+  visible: false
+  text: |
+    package common
+
+
+    import org.assertj.swing.fixture.JLabelFixture
+    import org.hyperskill.hstest.v6.stage.SwingTest
+    import org.hyperskill.hstest.v6.testcase.CheckResult
+    import org.hyperskill.hstest.v6.testcase.TestCase
+    import life.GameOfLife
+
+    abstract class GameOfLifeStage4Test : SwingTest<ClueWithChecker>(GameOfLife()) {
+
+        override fun generate(): List<TestCase<ClueWithChecker>> {
+            val generationLabel = ComponentRequirements("GenerationLabel", isEnabled = true) { window.label(it) }
+            val aliveLabel = ComponentRequirements("AliveLabel", isEnabled = true) { window.label(it) }
+
+            return frameTests(::frame) +
+                    existenceTests(generationLabel, aliveLabel) +
+                    componentsAreEnabledTests(generationLabel, aliveLabel) +
+                    stage4Tests(
+                            generationLabelRequirements = generationLabel,
+                            aliveLabelRequirements = aliveLabel
+                    )
+        }
+
+        override fun check(reply: String, clue: ClueWithChecker): CheckResult {
+            return checkClueWithCheckerTest(reply = reply, clue = clue)
+        }
+    }
+
+    fun stage4Tests(
+            generationLabelRequirements: ComponentRequirements<JLabelFixture>,
+            aliveLabelRequirements: ComponentRequirements<JLabelFixture>
+    ): List<TestCase<ClueWithChecker>> {
+        return listOf(
+                createDynamicFeedbackTest {
+                    with(checkLabelForInteger(generationLabelRequirements)) {
+                        if (!this.isCorrect) {
+                            return@createDynamicFeedbackTest this
+                        }
+                    }
+                    with(checkLabelForInteger(aliveLabelRequirements)) {
+                        if (!this.isCorrect) {
+                            return@createDynamicFeedbackTest this
+                        }
+                    }
+
+                    return@createDynamicFeedbackTest CheckResult.TRUE
+                }
+        )
+    }
+  learner_created: false
+- name: test/common/UiTestsGenerators.kt
+  visible: false
+  text: |
+    package common
+
+
+    import org.assertj.swing.fixture.AbstractJComponentFixture
+    import org.hyperskill.hstest.v6.stage.SwingTest
+    import org.hyperskill.hstest.v6.testcase.TestCase
+    import javax.swing.JFrame
+
+    fun frameTests(frameGetter: () -> JFrame): List<TestCase<ClueWithChecker>> {
+        return listOf(
+                createPredefinedFeedbackTest("Window is not visible") { frameGetter().isVisible }
+        )
+    }
+
+    class ComponentRequirements<ComponentType : AbstractJComponentFixture<*, *, *>>(
+            val name: String,
+            val isEnabled: Boolean,
+            private val componentFinder: (String) -> ComponentType?
+    ) {
+        val suitableComponent: ComponentType? by lazy { componentFinder(name) }
+    }
+
+    fun existenceTests(vararg components: ComponentRequirements<*>): List<TestCase<ClueWithChecker>> {
+        fun generateExistenceTest(requirements: ComponentRequirements<*>): TestCase<ClueWithChecker> {
+            return createPredefinedFeedbackTest("No suitable component with name '${requirements.name}' is found") {
+                SwingTest.checkExistence { requirements.suitableComponent }
+            }
+        }
+
+        return components.map(::generateExistenceTest)
+    }
+
+    fun componentsAreEnabledTests(vararg components: ComponentRequirements<*>): List<TestCase<ClueWithChecker>> {
+        fun generateIsEnabledTest(requirements: ComponentRequirements<*>): TestCase<ClueWithChecker> {
+            val (desiredState, stateChecker) = if (requirements.isEnabled) {
+                "enabled" to { requirements.requireExistingComponent().isEnabled }
+            } else {
+                "disabled" to { !requirements.requireExistingComponent().isEnabled }
+            }
+
+            return createPredefinedFeedbackTest("The '${requirements.name}' component should be $desiredState") {
+                stateChecker()
+            }
+
+        }
+
+        return components.map(::generateIsEnabledTest)
+    }
+
+    fun <ComponentType : AbstractJComponentFixture<*, *, *>>
+            ComponentRequirements<ComponentType>.requireExistingComponent(): ComponentType {
+        return requireNotNull(this.suitableComponent) {
+            "Must check for the '${this.name}' component existence before this test"
+        }
+    }
+  learner_created: false
+- name: src/life/Universe.java
+  visible: true
+  text: |
+    package life;
+
+    import java.util.ArrayList;
+    import java.util.Random;
+
+    public class Universe {
+        public static final String DEAD = " ";
+        public static final String ALIVE = "O";
+
+        private final ArrayList<ArrayList<String>> data;
+        private final int size;
+
+        public Universe(int size, long seed) {
+            this.size = size;
+            this.data = new ArrayList<>();
+            Random random = new Random(seed);
+
+            for (int x = 0; x < size; x++) {
+                ArrayList<String> row = new ArrayList<>();
+                for (int y = 0; y < size; y++) {
+                    row.add((random.nextInt(2) == 0) ? DEAD : ALIVE);
+                }
+                data.add(row);
+            }
+        }
+
+        public Universe(int size) {
+            this.size = size;
+            this.data = new ArrayList<>();
+            for (int x = 0; x < size; x++) {
+                ArrayList<String> row = new ArrayList<>();
+                for (int y = 0; y < size; y++) {
+                    row.add(DEAD);
+                }
+                data.add(row);
+            }
+        }
+
+        public Universe(String initialState) {
+            this.size = (int) Math.sqrt(initialState.length());
+            if (this.size * this.size != initialState.length())
+                System.err.println("Error with init string!");
+            this.data = new ArrayList<>();
+
+            for (int x = 0; x < size; x++) {
+                ArrayList<String> row = new ArrayList<>();
+                for (int y = 0; y < size; y++) {
+                    if (initialState.charAt(x * this.size + y) == 'O') {
+                        row.add(ALIVE);
+                    } else row.add(DEAD);
+                }
+                data.add(row);
+            }
+        }
+
+        public void print(boolean withAnnotation) {
+            if (withAnnotation) annotationHeader();
+            for (int x = 0; x < this.size; x++) {
+                if (withAnnotation) System.out.print(x + ".");
+                for (int y = 0; y < this.size; y++) {
+                    System.out.print(data.get(x).get(y));
+                }
+                System.out.println();
+            }
+        }
+
+        public void printNeighbors(boolean withAnnotation) {
+            if (withAnnotation) annotationHeader();
+            for (int x = 0; x < size; x++) {
+                if (withAnnotation) System.out.print(x + ".");
+                for (int y = 0; y < size; y++) {
+                    System.out.print(this.countNeighbors(x, y));
+                }
+                System.out.println();
+            }
+        }
+
+        private void annotationHeader() {
+            System.out.print("  ");
+            for (int y = 0; y < size; y++) System.out.print(y);
+            System.out.print("\n  ");
+            for (int y = 0; y < size; y++) System.out.print(".");
+            System.out.println();
+        }
+
+        public int getSize() {
+            return this.size;
+        }
+
+        public String getCell(int x, int y) {
+            return data.get(x).get(y);
+        }
+
+        public void setCell(int x, int y, String value) {
+            data.get(x).set(y, value);
+        }
+
+        public int countNeighbors(int i, int j) {
+            if (this.size == 1) {
+                if (data.get(0).get(0).equals(DEAD)) return 0;  // dead means no neighbors
+                return 8;                                       // alive means many neighbors
+            }
+
+            int boundary = this.size - 1;   // max index for x & y of this.data
+
+            // Create array of neighbor's coordinates
+            int[][] neighbors;
+            // Check the corners then edges else body
+            if (i == 0 && j == 0) {  // NW corner
+                neighbors = new int[][]{
+                        {boundary, boundary}, {boundary, 0}, {boundary, 1},
+                        {0, boundary},                       {0, 1},
+                        {1, boundary},        {1, 0},        {1, 1}};
+            } else if (i == 0 && j == boundary) {  // NE corner
+                neighbors = new int[][]{
+                        {boundary, j - 1}, {boundary, j}, {boundary, 0},
+                        {0, j - 1},                       {0, 0},
+                        {1, j - 1},        {1, j},        {1, 0}};
+            } else if (i == (data.size() - 1) && j == boundary) {  // SE corner
+                neighbors = new int[][]{
+                        {i - 1, j - 1}, {i - 1, j}, {i - 1, 0},
+                        {i, j - 1},                 {i, 0},
+                        {0, j - 1},     {0, j},     {0, 0}};
+            } else if (i == boundary && j == 0) {  // SW corner
+                neighbors = new int[][]{
+                        {i - 1, boundary}, {i - 1, 0}, {i - 1, 1},
+                        {i, boundary},                 {i, 1},
+                        {0, boundary},     {0, 0},     {0, 1}};
+            } else if (i == 0) {  // north edge
+                neighbors = new int[][]{
+                        {boundary, j - 1}, {boundary, j}, {boundary, j + 1},
+                        {0, j - 1},        {0, j + 1},
+                        {1, j - 1},        {1, j},        {1, j + 1}};
+            } else if (j == boundary) { // east edge
+                neighbors = new int[][]{
+                        {i - 1, j - 1}, {i - 1, j}, {i - 1, 0},
+                        {i, j - 1},                 {i, 0},
+                        {i + 1, j - 1}, {i + 1, j}, {i + 1, 0}};
+            } else if (i == boundary) {  // south edge
+                neighbors = new int[][]{
+                        {i - 1, j - 1}, {i - 1, j}, {i - 1, j + 1},
+                        {i, j - 1},                 {i, j + 1},
+                        {0, j - 1},     {0, j},     {0, j + 1}};
+            } else if (j == 0) {  // west edge
+                neighbors = new int[][]{
+                        {i - 1, boundary}, {i - 1, 0}, {i - 1, 1},
+                        {i, boundary},                 {i, j + 1},
+                        {i + 1, boundary}, {i + 1, 0}, {i + 1, 1}};
+            } else { // location in body of matrix
+                neighbors = new int[][]{
+                        {i - 1, j - 1}, {i - 1, j}, {i - 1, j + 1},
+                        {i, j - 1},                 {i, j + 1},
+                        {i + 1, j - 1}, {i + 1, j}, {i + 1, j + 1}};
+            }
+
+            int count = 0;
+            for (int x = 0; x < 8; x++) {
+                if (getCell(neighbors[x][0], neighbors[x][1]).equals(ALIVE)) count++;
+            }
+            return count;
+        }
+
+        public int livingCells() {
+            int count = 0;
+            for (int x = 0; x < size; x++) {
+                for (int y = 0; y < size; y++) {
+                    if (getCell(x, y).equals(ALIVE)) count++;
+                }
+            }
+            return count;
+        }
+
+    }
+  learner_created: true
+- name: src/life/Generation.java
+  visible: true
+  text: |
+    package life;
+
+    import java.util.Random;
+
+    public class Generation {
+        public static Universe randomNext(Universe firstGen) {
+            Random random = new Random(System.currentTimeMillis());
+            return new Universe(firstGen.getSize(), random.nextLong());
+        }
+
+        public static Universe next(Universe firstGen) {
+            Universe nextGen = new Universe(firstGen.getSize());
+
+            for (int x = 0; x < firstGen.getSize(); x++) {
+                for (int y = 0; y < firstGen.getSize(); y++) {
+                    int neighbors = firstGen.countNeighbors(x, y);
+                    if (neighbors == 2 && firstGen.getCell(x, y).equals(Universe.ALIVE)) {
+                        nextGen.setCell(x, y, Universe.ALIVE);
+                    } else if (neighbors == 3) {
+                        nextGen.setCell(x, y, Universe.ALIVE);
+                    } else if (neighbors < 2 || neighbors > 3) {
+                        nextGen.setCell(x, y, Universe.DEAD);
+                    }
+                }
+            }
+
+            return nextGen;
+        }
+
+    }
+  learner_created: true
+- name: src/life/Main.java
+  visible: true
+  text: |+
+    package life;
+
+    import java.util.Scanner;
+
+    public class Main {
+        public static void main(String[] args) {
+            Scanner scanner = new Scanner(System.in);
+            int universeSize = scanner.nextInt();
+            long seed = System.currentTimeMillis();             // scanner.nextLong();
+            int generations = 100;                              // scanner.nextInt();
+            boolean withAnnotation = false;
+            boolean showNeighbors = false;
+            boolean showEachGeneration = true;
+
+            Universe universe = new Universe(universeSize, seed);
+            if (showEachGeneration) {
+                clearConsole();
+                universe.print(withAnnotation);
+            }
+
+            for (int g = 1; g <= generations; g++) {
+                try {
+                    Thread.sleep(5);
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                }
+                universe = Generation.next(universe);
+                if (showEachGeneration) {
+                    clearConsole();
+                    System.out.println("Generation #" + (g));
+                    System.out.println("Alive: " + universe.livingCells());
+                    universe.print(withAnnotation);
+                }
+                if (showNeighbors) {
+                    System.out.println();
+                    universe.printNeighbors(withAnnotation);
+                    System.out.println();
+                }
+
+            }
+        }
+
+        public static void clearConsole() {
+    //        try {
+    //            if (System.getProperty("os.name").contains("Windows"))
+    //                new ProcessBuilder("cmd","/c","cls").inheritIO().start().waitFor();
+    //            else
+    //                Runtime.getRuntime().exec("clear");
+    //        }
+    //        catch (IOException | InterruptedException e) {}
+        }
+
+    }
+
+  learner_created: true
+- name: src/life/GameOfLife.java
+  visible: true
+  learner_created: true
+feedback_link: https://hyperskill.org/projects/54/stages/298/implement
+status: Unchecked
+record: -1
