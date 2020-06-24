@@ -4,7 +4,7 @@
 
 <p>Let’s visualize evolution. In the previous stage, we could see only one generation. It would be better if each generation was displayed. But our perception is not as fast as computer’s, so our application should sleep a little after each generation.</p>
 
-<p>Use methods of the class <code class="java">java.lang.Thread</code> to achieve this goal.</p>
+<p>Use methods of the class <code class="java">java.lang.Thread</code> to achieve this goal.</p>
 
 <p>You can do this in two ways:</p>
 
@@ -20,14 +20,14 @@
 <p>Due to the cross-platform nature of Java, the second way can be complicated. You can use this code to clear the console output.</p>
 
 <pre><code class="java">try {
-    if (System.getProperty("os.name").contains("Windows"))
-        new ProcessBuilder("cmd","/c","cls").inheritIO().start().waitFor();
-    else
-        Runtime.getRuntime().exec("clear");
+    if (System.getProperty("os.name").contains("Windows"))
+        new ProcessBuilder("cmd","/c","cls").inheritIO().start().waitFor();
+    else
+        Runtime.getRuntime().exec("clear");
 }
 catch (IOException | InterruptedException e) {}</code></pre>
 
-<p>The only input is a number for the size of the universe. The universe for this stage is a square. Also, in this stage you shouldn't set the seed to generate an initial position, it should be random.</p>
+<p>The only input is a number for the size of the universe. The universe for this stage is a square. Also, in this stage you shouldn't set the seed to generate an initial position, it should be random.</p>
 
 <p>The launched application must show evolution in progress. You should output at least 10 generations before stoppint the application.</p>
 

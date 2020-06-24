@@ -30,6 +30,7 @@
     <exclude-output />
     <content url="file://$MODULE_DIR$/../../../../Game of Life/task/src">
       <sourceFolder url="file://$MODULE_DIR$/../../../../Game of Life/task/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../../../../Game of Life/task/src/main/resources" type="java-resource" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

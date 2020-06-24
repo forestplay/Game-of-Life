@@ -1,69 +1,83 @@
 package life;
 
 import javax.swing.*;
-import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 
 public class GameOfLife extends JFrame {
-    public GameOfLife() {
-        // window label
-        super("Game of Life");
-
-        int universeSize = 40;
-        int generations = 100;
-
-        Universe universe = new Universe(universeSize, System.currentTimeMillis());
-
-        try {
-            int x = 0;
-            while (x <= generations) {
-                displayUniverse(x, universe);
-                universe = Generation.next(universe);
-                x++;
-            }
-
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-        }
-
-
-        }
+    private final int universeSize;
+    private Universe universeData;
+    private UniverseView theView;
+    private int currentGeneration;
+    private Timer timer;
 
     public static void main(String[] args) {
         new GameOfLife();
     }
 
-    public void displayUniverse(int generation, Universe universe) throws Exception {
-        int universeSize = universe.getSize();
+    public GameOfLife() {
+        this.universeSize = 50;
+        this.currentGeneration = 0;
 
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(400, 400);
-        setLocationRelativeTo(null);
-        setLayout(new BorderLayout());
-
-        JPanel labelPanel  = new JPanel();
-        labelPanel.setLayout(new BoxLayout(labelPanel, BoxLayout.Y_AXIS));
-
-        JLabel generationLabel = new JLabel("Generation #" + generation);
-        labelPanel.add(generationLabel);
-        JLabel aliveLabel = new JLabel("Alive: " + universe.livingCells());
-        labelPanel.add(aliveLabel);
-        add(labelPanel, BorderLayout.NORTH);
-
-        JPanel universePanel = new JPanel();
-        universePanel.setLayout(new GridLayout(universeSize, universeSize, 0, 0));
-        for (int x = 0; x < universeSize; x++)
-            for (int y = 0; y < universeSize; y++) {
-                JButton button = new JButton();
-                button.setEnabled(false);
-                if (universe.getCell(x, y) == Universe.ALIVE)
-                    button.setBackground(Color.BLUE);
-                universePanel.add(button);
-            }
-        add(universePanel, BorderLayout.CENTER);
-
-        setVisible(true);
-        Thread.sleep(500L);
-
+        try {
+            this.universeData = new Universe(universeSize, System.currentTimeMillis());
+            this.theView = new UniverseView(currentGeneration, universeData);
+            this.theView.addPlayButtonListener(new PlayListener());
+            this.theView.addSkipButtonListener(new SkipListener());
+            this.theView.addResetButtonListener(new ResetListener());
+            this.timer = new Timer(1000, new TimerListener());
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
     }
 
+    public void incrementGeneration() {
+        currentGeneration++;
+        universeData = Generation.next(universeData);
+        theView.setUniverse(universeData);
+        theView.setGeneration(currentGeneration);
+    }
+
+    class SkipListener implements ActionListener {
+        @Override
+        public void actionPerformed(ActionEvent itemEvent) {
+            incrementGeneration();
+        }
+    }
+
+    class PlayListener implements ItemListener {
+        @Override
+        public void itemStateChanged(ItemEvent itemEvent) {
+            // event is generated in button
+            int state = itemEvent.getStateChange();
+            // if selected, step each generation with timer
+            if (state == ItemEvent.SELECTED) {
+                theView.setPlayState(true);
+                timer.start();
+                incrementGeneration();
+            } else {
+                theView.setPlayState(false);
+                timer.stop();
+            }
+        }
+    }
+
+    class ResetListener implements ActionListener {
+        @Override
+        public void actionPerformed(ActionEvent itemEvent) {
+            currentGeneration = 0;
+            universeData = new Universe(universeSize, System.currentTimeMillis());
+            theView.setUniverse(universeData);
+            theView.setGeneration(currentGeneration);
+        }
+    }
+
+    class TimerListener implements ActionListener {
+        @Override
+        public void actionPerformed(ActionEvent itemEvent) {
+            incrementGeneration();
+        }
+    }
 }
