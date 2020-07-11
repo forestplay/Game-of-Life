@@ -5,5 +5,6 @@ Buttons:
 2. Run one generation per second/Pause
 3. Reset
 
+![Playing game of life](/assets/images/GameOfLife.gif)
 
 This is a Hyperskill project
